@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 
@@ -23,9 +24,8 @@ st.set_page_config(page_title="Factura Notarial", layout="centered")
 st.title("🧾 Factura Notarial")
 
 # ======================
-# CARGA DE EXCEL
-# ======================
-archivo = "tarifas demo.xlsx"
+# Ruta absoluta del Excel, relativa al script
+archivo = os.path.join(os.path.dirname(__file__), "tarifas demo.xlsx")
 # ======================
 # TARIFAS FIJAS
 # ======================
