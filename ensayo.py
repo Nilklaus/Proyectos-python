@@ -16,7 +16,6 @@ def calcular_servicio_cuantia(cuantia, regla):
         excedente = cuantia - umbral
         return base + (excedente * porcentaje)
 
-
 # ======================
 # CONFIGURACIÓN APP
 # ======================
@@ -26,6 +25,13 @@ st.title("🧾 Factura Notarial")
 # ======================
 # Ruta absoluta del Excel, relativa al script
 archivo = os.path.join(os.path.dirname(__file__), "tarifas demo.xlsx")
+
+# Comprobar que el archivo exista antes de leerlo
+if not os.path.exists(archivo):
+    st.error(f"No se encontró el archivo Excel en: {archivo}")
+    st.stop()  # Detiene la ejecución si no se encuentra
+else:
+    st.success(f"Archivo encontrado: {archivo}")
 # ======================
 # TARIFAS FIJAS
 # ======================
