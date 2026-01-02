@@ -25,7 +25,7 @@ st.title("🧾 Factura Notarial")
 
 # ======================
 # Ruta relativa desde carpeta de ejecución
-archivo = "tarifas demo.xlsx"
+archivo = "Tarifas demo.xlsx"
 
 # ======================
 # Debug: mostrar carpeta actual y archivos
