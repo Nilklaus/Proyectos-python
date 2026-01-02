@@ -13,8 +13,7 @@ def calcular_servicio_cuantia(cuantia, regla):
     if cuantia <= umbral:
         return base
     else:
-        excedente = cuantia - umbral
-        return base + (excedente * porcentaje)
+        return base + (cuantia - umbral) * porcentaje
 
 # ======================
 # CONFIGURACIÓN APP
@@ -23,19 +22,25 @@ st.set_page_config(page_title="Factura Notarial", layout="centered")
 st.title("🧾 Factura Notarial")
 
 # ======================
-# Ruta absoluta del Excel, relativa al script
-archivo = os.path.join(os.path.dirname(__file__), "tarifas demo.xlsx")
+# Ruta relativa desde carpeta de ejecución
+archivo = "tarifas demo.xlsx"
 
-# Comprobar que el archivo exista antes de leerlo
+# ======================
+# Debug: mostrar carpeta actual y archivos
+st.write("Directorio actual:", os.getcwd())
+st.write("Archivos en la carpeta:", os.listdir())
+
+# ======================
+# Comprobar existencia del archivo
 if not os.path.exists(archivo):
-    st.error(f"No se encontró el archivo Excel en: {archivo}")
-    st.stop()  # Detiene la ejecución si no se encuentra
+    st.error(f"No se encontró el archivo Excel en: {os.getcwd()}/{archivo}")
+    st.stop()
 else:
     st.success(f"Archivo encontrado: {archivo}")
+
 # ======================
 # TARIFAS FIJAS
-# ======================
-df = pd.read_excel(archivo, sheet_name="Hoja de control")
+df = pd.read_excel(archivo, sheet_name="Hoja de control", engine="openpyxl")
 df = df.dropna(subset=["AÑO"])
 df["AÑO"] = df["AÑO"].astype(int)
 
@@ -47,42 +52,28 @@ tarifas = fila.iloc[0].drop("AÑO").dropna().to_dict()
 
 # ======================
 # REGLAS POR CUANTÍA
-# ======================
-reglas = pd.read_excel(archivo, sheet_name="Servicios por cuantia")
+reglas = pd.read_excel(archivo, sheet_name="Servicios por cuantia", engine="openpyxl")
 reglas = reglas.dropna(subset=["SERVICIO"])
 
 # ======================
 # SESSION STATE
-# ======================
 if "factura" not in st.session_state:
     st.session_state.factura = []
 
 # ======================
-# SERVICIOS POR CUANTÍA (PRIMERO)
-# ======================
+# SERVICIOS POR CUANTÍA
 st.subheader("➕ Servicio por cuantía")
 
 servicios_cuantia = reglas[
-    (reglas["AÑO_DESDE"] <= anio) &
-    (reglas["AÑO_HASTA"] >= anio)
+    (reglas["AÑO_DESDE"] <= anio) & (reglas["AÑO_HASTA"] >= anio)
 ]["SERVICIO"].unique()
 
 if len(servicios_cuantia) > 0:
-    servicio_cuantia = st.selectbox(
-        "Servicio",
-        servicios_cuantia
-    )
+    servicio_cuantia = st.selectbox("Servicio", servicios_cuantia)
 
-    tipo_cmp = st.radio(
-        "Tipo de comparecientes",
-        ["PARTICULARES", "PARTICULARES + EXENTOS"]
-    )
+    tipo_cmp = st.radio("Tipo de comparecientes", ["PARTICULARES", "PARTICULARES + EXENTOS"])
 
-    cuantia = st.number_input(
-        "Cuantía del acto",
-        min_value=0,
-        step=1_000
-    )
+    cuantia = st.number_input("Cuantía del acto", min_value=0, step=1_000)
 
     if st.button("Agregar servicio por cuantía"):
         regla = reglas[
@@ -94,18 +85,11 @@ if len(servicios_cuantia) > 0:
         valor_calculado = calcular_servicio_cuantia(cuantia, regla)
 
         # Selección de tope
-        tope = (
-            regla["TOPE_PARTICULARES"]
-            if tipo_cmp == "PARTICULARES"
-            else regla["TOPE_EXENTOS"]
-        )
-
-        # Normalización del tope
+        tope = regla["TOPE_PARTICULARES"] if tipo_cmp == "PARTICULARES" else regla["TOPE_EXENTOS"]
         if pd.isna(tope):
             tope = None
 
         aporte_especial = 0
-
         if tope is not None and valor_calculado > tope:
             valor_servicio = tope
             aporte_especial = valor_calculado - tope
@@ -122,57 +106,45 @@ if len(servicios_cuantia) > 0:
             "Valor unitario": valor_servicio,
             "IVA": True,
             "Editable": False,
-            "Subtotal": valor_servicio})
-
+            "Subtotal": valor_servicio
+        })
 
         if aporte_especial > 0:
             st.session_state.factura.append({
                 "Servicio": "Aporte especial",
-                 "Tipo": "Aporte especial",
+                "Tipo": "Aporte especial",
                 "Cantidad": 1,
                 "Valor unitario": aporte_especial,
                 "IVA": False,
                 "Editable": False,
                 "Subtotal": aporte_especial
-})
-
+            })
 
         st.success("Servicio agregado")
 
 # ======================
 # SERVICIOS DE TARIFA FIJA
-# ======================
 st.subheader("➕ Servicio tarifa fija")
 
 if tarifas:
-    servicio = st.selectbox(
-        "Servicio",
-        list(tarifas.keys())
-    )
-
-    cantidad = st.number_input(
-        "Cantidad",
-        min_value=1,
-        step=1
-    )
+    servicio = st.selectbox("Servicio", list(tarifas.keys()))
+    cantidad = st.number_input("Cantidad", min_value=1, step=1)
 
     if st.button("Agregar servicio fijo"):
         valor = int(tarifas[servicio])
-        st.session_state.factura.append({    
-             "Servicio": servicio,
-             "Tipo": "Tarifa fija",
-             "Cantidad": cantidad,
-             "Valor unitario": valor,
-             "IVA": True,
-             "Editable": True,
-             "Subtotal": cantidad * valor})
-
-
+        st.session_state.factura.append({
+            "Servicio": servicio,
+            "Tipo": "Tarifa fija",
+            "Cantidad": cantidad,
+            "Valor unitario": valor,
+            "IVA": True,
+            "Editable": True,
+            "Subtotal": cantidad * valor
+        })
         st.success("Servicio agregado")
 
 # ======================
 # FACTURA
-# ======================
 st.divider()
 st.subheader("🧾 Factura")
 
@@ -191,13 +163,7 @@ for i, item in enumerate(st.session_state.factura):
         st.caption(item["Tipo"])
 
     with col2:
-        nueva = st.number_input(
-            "Cantidad",
-            min_value=1,
-            value=item["Cantidad"],
-            step=1,
-            key=f"cant_{i}"
-        )
+        nueva = st.number_input("Cantidad", min_value=1, value=item["Cantidad"], step=1, key=f"cant_{i}")
         item["Cantidad"] = nueva
 
     with col3:
